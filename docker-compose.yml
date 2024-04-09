@@ -1,0 +1,25 @@
+version: "3.7"
+
+services:
+  service:
+    image: adminesollab/dev-repository:core-api-latest
+    container_name: core-api
+    env_file:
+      - .env
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+    # volumes:
+    #   - ./:/src
+    ports:
+      - "8881:8000"
+    # networks:
+    #   - base-network
+    command: 'gunicorn --forwarded-allow-ips "*" -k "uvicorn.workers.UvicornWorker" -c "/src/gunicorn/gunicorn_conf.py" "src.main:app"'
+# volumes:
+#   app_pg_data:
+#     driver: "local"
+
+# networks:
+#   base-network:
+#     external: true

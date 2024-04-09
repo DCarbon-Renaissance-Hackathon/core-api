@@ -1,0 +1,55 @@
+variables:
+  REGISTRY: 968557029040.dkr.ecr.ap-southeast-1.amazonaws.com/dcarbon-stag
+  REGISTRY_ADDRESS: adminesollab/dev-repository
+  DOCKER_REGISTRY_USER: adminesollab
+  DOCKER_REGISTRY_TOKEN: dckr_pat_22XnhhVaNZtUdVEVpCyLMTrw6zk
+
+stages:
+  - build
+  - client-deploy
+
+build:
+  stage: build
+  image:
+    name: gcr.io/kaniko-project/executor:debug
+    entrypoint: [""]
+  script:
+    - export ts=`date +%s`
+    - >-
+      /kaniko/executor
+      --context "${CI_PROJECT_DIR}"
+      --destination "${REGISTRY}:${CI_PROJECT_NAME}-${CI_COMMIT_BRANCH}-${CI_COMMIT_SHORT_SHA}-$ts"
+      --destination "${REGISTRY}:${CI_PROJECT_NAME}-${CI_COMMIT_BRANCH}-latest"
+  tags:
+    - build
+    - k8s
+  only:
+    refs:
+      - stag
+
+client-deploy:
+  stage: client-deploy
+  script:
+    - docker login -u ${DOCKER_REGISTRY_USER} -p ${DOCKER_REGISTRY_TOKEN}
+
+    # build image from Dockerfile, tags should be <your-project-name>-<short-commit>
+    - docker build -f Dockerfile . -t ${REGISTRY_ADDRESS}:core-api-${CI_COMMIT_SHORT_SHA}
+
+    # tag new image with <your-project-name>-latest
+    - docker tag ${REGISTRY_ADDRESS}:core-api-${CI_COMMIT_SHORT_SHA} ${REGISTRY_ADDRESS}:core-api-latest
+
+    # push both of the images to registry
+    - docker push ${REGISTRY_ADDRESS}:core-api-${CI_COMMIT_SHORT_SHA}
+    - docker push ${REGISTRY_ADDRESS}:core-api-latest
+
+    - cp /home/gitlab-runner/ENV/core-api/.env .
+
+    - docker compose up -d
+  only:
+    refs:
+      # branch of the repo
+      - stag
+  tags:
+    # choose runner
+    - client
+    - build
